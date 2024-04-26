@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+
+<head>
+  <title>Youtube Topics</title>
+  <meta charset="utf-8">
+  <style>
+	.chartDiv { 	
+		margin-left: 10% !important;
+		width: 68%;
+		display: block;
+		float: left;
+	}
+	
+	.icon {
+		height: 80px;
+		width: 80px:
+	}
+				
+	.topbar {
+		width: 90%;
+		margin-left: 10%;
+		display: block;
+		height: 80px;
+	}
+	
+	.rightbar {
+		float: right;
+		height: 100%;
+		width: 15%;
+		padding-top: 10px;
+		margin-right: 7%;
+	}
+	
+	.right {
+		padding: 10px;
+		border-radius: 10px;
+		height: 100px;
+		overflow: visible;
+		overflow-wrap: normal;
+		margin-bottom: 30px;
+	}
+	
+	.bottombar {
+		margin-left: 10% !important;
+		padding-top: 400px;
+		display: grid
+		width: 65%
+	}
+	
+	.desc {
+		background-color: #d3d3d3;
+		border-radius: 10px;
+		padding: 10px;
+		width: 65%
+	}
+	
+	.tooltip {
+		display: hidden
+	}
+  </style>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.16.0/d3.min.js"></script>
+</head>
+
+<body>
+  <script>
+	function buildSVG(id) {
+		d3.selectAll("svg").remove()
+		
+		var margin = { top: 50, right: 70, bottom: 50, left: 50 }
+		var height = 720 - margin.top - margin.bottom
+		var width = Math.floor(screen.width * .65) - margin.left - margin.right
+		
+		var svg = d3.select(".chartDiv")
+			.append("svg")
+			.attr("id", id)
+			.attr("width", width + margin.left + margin.right)
+			.attr("height", height + margin.top + margin.bottom)
+			.style('border', '3px solid')
+			.style('border-radius', '15px')
+			.append("g")
+			.attr("id", "container")
+			.attr("transform",
+				"translate(" + margin.left + "," + margin.top + ")");
+		
+		return [svg, margin, height, width]
+	}
+	
+	function linechart(id) {
+		
+		var [svg, margin, height, width] = buildSVG(id)
+			
+		var url = "/timeseries";
+
+
+		d3.json(url).then(function (data) {
+			
+			temp = []
+			
+			data = data.forEach(function (d) {
+				temp.push({
+					Time: new Date(Date.parse(d.Timestamp)),
+					Topic: d.Topic,
+					Frequency: +d.Frequency,
+					words: d.Words
+				}) 
+			})
+			
+			data = temp
+			
+			yeet = d3.nest()
+				.key(d => d.Topic)
+				.entries(data)
+			
+			circleData = []
+			
+			topic = data.map(d => d.Topic)
+			
+			color = d3.scaleOrdinal().domain(topic).range([
+						"#394959",
+						"#6c843e",
+						"#425150",
+						"#121516",
+						"#0c1610",
+						"#00063a",
+						"#4080f7",
+						"#2a6296",
+						"#0f301a",
+						"#5178bc",
+						"#030706",
+						"#576618",
+						"#25ce38",
+						"#a86c12",
+						"#631d99",
+						"#dbc2a8",
+						"#be7cc1",
+						"#1c283f",
+						"#3d3d3d",
+						"#1d230b",
+						"#01332c",
+						"#144207",
+						"#1313dd",
+						"#353c49",
+						"#473e31",
+						"#685664",
+						"#9da06b",
+						"#db5c4e",
+						"#636263",
+						"#01231e",
+						"#0fb3d8",
+						"#050200",
+						"#1b4760",
+						"#bca5e5",
+						"#545b32",
+						"#5eba61",
+						"#b4edbe",
+						"#06217a",
+						"#847ead",
+						"#7d84a5"
+					])
+					
+			xScale = d3.scaleTime()
+						.domain(d3.extent(data.map(d => d.Time)))
+						.range([0, width])
+						
+			xAxis = d3.axisBottom(xScale)
+							.ticks(10)
+				
+			target = svg.append('g')
+							.attr('id', 'x-axis-lines')
+							.attr("transform", "translate(" + 0 + ", " + height + ")")
+				
+			target.call(xAxis)
+			
+			target.append('text')
+				 .text("Date")
+				 .attr("x", width / 2 )
+				 .attr("y", 30)
+				 .attr('text-anchor', "middle")
+				 .attr('fill', 'black')
+				 .style('font-size', "12px")
+			
+			yScale = d3.scaleLinear()
+						.domain([0, d3.max(data.map(d => d.Frequency))])
+						.range([height, 0])
+						
+			yAxis = d3.axisLeft(yScale)
+							.ticks(10)
+				
+			target = svg.append('g')
+							.attr('id', 'y-axis-lines')
+							.attr("transform", "translate(" + 0 + ", " + 0 + ")")
+				
+			target.call(yAxis)
+				
+			target.append('text')
+					.text("Frequency")
+					.attr("x", -height / 2 )
+					.attr("y", -35)
+					.attr('text-anchor', "middle")
+					.attr("transform", "rotate(-90)")
+					.attr('fill', 'black')
+					.style('font-size', "12px")
+			
+			svg.append('g')
+				.attr('id', 'lines')
+				.selectAll('path')
+				.data(yeet)
+				.enter()
+				.append('path')
+				.attr('d', function(d) { 
+					return d3.line()
+							.x(d => xScale(d.Time))
+							.y(d => yScale(d.Frequency))
+							(d.values)
+				})
+				.attr("fill", "none")
+				.attr("stroke", d => color(d.key))
+				.attr("stroke-width", 2)
+			
+			circles = svg.append('g')
+							.attr('id', 'circles')
+					
+			circles.selectAll("circle")
+					.data(data)
+					.enter()
+					.append("circle")
+					.attr("r", 4)
+					.attr("cx", d => xScale(d.Time))
+					.attr("cy", d => yScale(d.Frequency))
+					.style("fill", d => color(d.Topic))
+					.on('mouseover', mouseover2)
+					.on('mousemove', mousemove2)
+					.on('mouseout', mouseleave2)
+			
+			
+			
+			legendData = [...new Set(data.map(d => d.Topic))]
+			
+			legend = svg.append('g')
+						.attr('id', 'legend')
+						
+			legend.selectAll('circle')
+					.data(legendData)
+					.enter()
+					.append('circle')
+					.attr("r", 4)
+					.attr("cx", width + 20)
+					.attr("cy", (d, i) => i * 12 + 50)
+					.style("fill", d => color(d))
+			
+			legend.selectAll('text')
+					.data(legendData)
+					.enter()
+					.append('text')
+					.text(d => "Topic " + (parseInt(d)))
+					.attr("x", width + 30)
+					.attr("y", (d, i) => i * 12 + 52)
+					.style("font-size", "8px")
+					.style("fill", '#000')
+					.style('font-weight', 'bold')
+					
+			var botbar = d3.select('.bottombar')
+		
+			d3.selectAll('#charttitle').remove()
+			d3.selectAll('#chartdesc').remove()
+									
+			var chartTitle = botbar.append('h3')
+								.attr('id', 'charttitle')
+								.text('Topic Line Chart')
+							
+			var chartTitle = botbar.append('p')
+								.attr('id', 'chartdesc')
+								.attr('class', 'desc')
+								.text('The aboove graph shows how much the topics have changed over time and gives a word list when hovered over')
+		
+		}).catch(function (error) {
+      console.log(error);
+    });
+
+	}
+  
+	function graph(id, filt = -1) {
+		var [svg, margin, height, width] = buildSVG(id)
+		
+		var url = `/graphnodes/${filt}`;
+		
+		if(filt === -1){
+			var name = 'All Topics'
+		} else {
+			var name = `Topic ${filt}`
+		}
+									
+		var botbar = d3.select('.bottombar')
+		
+		d3.selectAll('#charttitle').remove()
+		d3.selectAll('#chartdesc').remove()
+									
+		var chartTitle = botbar.append('h3')
+								.attr('id', 'charttitle')
+								.text(`Graph ${name}`)
+							
+		var chartTitle = botbar.append('p')
+								.attr('id', 'chartdesc')
+								.attr('class', 'desc')
+								.text('Above is a graph that has pan and zoom features that shows the connectedness of a topic hovering over a point will display the word. Green = Noun, Red = Verb, Blue = Adjective. The graph has force that pulls more connected nodes toward the center')
+		
+		d3.json(url).then(function (node) {
+			var url = `/graphedges/${filt}`;
+			var nod = node
+			d3.json(url).then(function (lin) {
+				if(filt === -1){
+					var nodes = nod
+					var links = lin
+				} else {
+					var nodes = nod.filter(d => d.topic === filt)
+					var links = lin.filter(d => d.topic === filt)
+				}
+				
+				let transform = d3.zoomIdentity;
+				
+				const simulation = d3.forceSimulation(nodes)
+										.force("link", d3.forceLink(links).id(d => d.id)
+														.distance((d) => Math.log(d.weight)/10)
+														.strength(0.2)
+										)
+										.force("charge", d3.forceManyBody()
+															.strength(-40)
+										)
+										.force("x", d3.forceX())
+										.force("y", d3.forceY());
+
+  
+  
+									const link = svg.append("g")
+													.attr("stroke", "#999")
+													.attr("stroke-opacity", 0.3)
+													.selectAll("line")
+													.data(links)
+													.enter().append("line")
+													.attr("stroke-width", d => 0.5 + 1 * Math.log(d.weight));
+  
+									const zoomRect = svg.append("rect")
+														.attr("width", width)
+														.attr("height", height)
+														.style("fill", "none")
+														.style("pointer-events", "all")
+    
+									const node = svg.append("g")
+													.attr("stroke", "#fff")
+													.attr("stroke-width", 1.5)
+													.selectAll("circle")
+													.data(nodes)
+													.enter().append("circle")
+													.attr("r", d => d.count/ 10 + 4)
+													.attr("fill", d => d.color);
+  
+									const zoom = d3.zoom()
+													.scaleExtent([1/12, 128])
+													.on("zoom", zoomed);
+  
+									zoomRect.call(zoom)
+											.call(zoom.translateTo, 0, 0);
+  
+									node.append("title")
+										.text(d => d.id);
+
+									simulation.on("tick", () => {
+												link.attr("x1", d => d.source.x)
+													.attr("y1", d => d.source.y)
+													.attr("x2", d => d.target.x)
+													.attr("y2", d => d.target.y);
+
+									node.attr("cx", d => d.x)
+										.attr("cy", d => d.y);
+									});
+
+									return svg.node();
+    
+									function zoomed() {
+											transform = d3.event.transform;
+											node.attr("transform", d3.event.transform);
+											link.attr("transform", d3.event.transform);
+											
+									}
+									
+									
+	})
+	})
+	}
+	
+	function intertopicDist(id) {
+		var [svg, margin, height, width] = buildSVG(id)
+		
+		var url = "/distance";
+		
+		d3.json(url).then(function (data) {
+			//d => {
+			//return {
+			//	x: +d.x,
+			//	y: +d.y,
+			//	Size: +d.Size,
+			//	Topic: d.Topic,
+			//	Words: d.Words
+			//}
+			//}
+			
+			var xScale = d3.scaleLinear()
+						.domain(d3.extent(data.map(d => d.x)))
+						.range([0, width])
+						
+			var xAxis = d3.axisBottom(xScale)
+							.ticks(10)
+				
+			var target = svg.append('g')
+							.attr('id', 'x-axis-lines')
+							.attr("transform", "translate(" + 0 + ", " + height + ")")
+				
+			target.call(xAxis)
+			
+			target.append('text')
+				 .text("X")
+				 .attr("x", width / 2 )
+				 .attr("y", 30)
+				 .attr('text-anchor', "middle")
+				 .attr('fill', 'black')
+				 .style('font-size', "12px")
+			
+			var yScale = d3.scaleLinear()
+						.domain(d3.extent(data.map(d => d.y)))
+						.range([height, 0])
+						
+			var yAxis = d3.axisLeft(yScale)
+							.ticks(10)
+				
+			target = svg.append('g')
+							.attr('id', 'y-axis-lines')
+							.attr("transform", "translate(" + 0 + ", " + 0 + ")")
+				
+			target.call(yAxis)
+			
+			target.append('text')
+					.text("Y")
+					.attr("x", -height / 2 )
+					.attr("y", -35)
+					.attr('text-anchor', "middle")
+					.attr("transform", "rotate(-90)")
+					.attr('fill', 'black')
+					.style('font-size', "12px")
+			
+			var topic = data.map(d => d.Topic)
+			
+			var color = d3.scaleOrdinal().domain(topic).range(['#8dd3c7','#ffffb3','#bebada','#fb8072','#80b1d3','#fdb462','#b3de69','#fccde5','#d9d9d9','#bc80bd','#ccebc5','#ffed6f'])
+			
+			var circles = svg.append('g')
+							.attr('id', 'circles')
+					
+			circles.selectAll("circle")
+					.data(data)
+					.enter()
+					.append("circle")
+					.attr("r", d => d.Size / 80 + 5)
+					.attr("cx", d => xScale(d.x))
+					.attr("cy", d => yScale(d.y))
+					.style("fill", d => color(d.Topic))
+					.on('mouseover', mouseover)
+					.on('mousemove', mousemove)
+					.on('mouseout', mouseleave)
+					.on('dblclick', d => { tooltip.style('visibility', 'hidden'); graph('topicGraph', d.Topic)})
+			
+
+			var botbar = d3.select('.bottombar')
+			
+			d3.select('#charttitle').remove()
+			d3.select('#chartdesc').remove()
+			
+			var chartTitle = botbar.append('h3')
+							.attr('id', 'charttitle')
+							.text('Intertopic Distance')
+							
+			var chartTitle = botbar.append('p')
+							.attr('id', 'chartdesc')
+							.attr('class', 'desc')
+							.text('Above is an intertopic distance graph that shows the similarity between topics. When hovered over the points show a graph of frequent words and bigrams for the topic. In addition, you can double click the point to be taken to a directed graph of the topic')
+		
+			
+			
+	})
+	}
+	
+	function buildIntertopicBar(id) {
+		var [svg, margin, height, width] = buildSVG(id)
+		
+		var url = "/intertopic";
+		
+		d3.json(url).then(data => {
+			temp = []
+			
+			data.forEach(d => { temp.push({topic: +d.topic, views: +d.view_count})})
+			
+			data = temp
+			
+			var xScale = d3.scaleLinear()
+						.domain([0, d3.max(data.map(d => d.views))])
+						.range([0, width])
+						
+						
+			var xAxis = d3.axisBottom(xScale)
+							.ticks(10)
+				
+			var target = svg.append('g')
+							.attr('id', 'x-axis-lines')
+							.attr("transform", "translate(" + 0 + ", " + height + ")")
+				
+			target.call(xAxis)
+			
+			target.append('text')
+				 .text("Views")
+				 .attr("x", width / 2 )
+				 .attr("y", 30)
+				 .attr('text-anchor', "middle")
+				 .attr('fill', 'black')
+				 .style('font-size', "12px")
+				 
+			var yScale = d3.scaleBand()
+						.domain(data.map(d => d.topic))
+						.range([height, 0])
+						.padding(.1)
+						
+			var yAxis = d3.axisLeft(yScale)
+				
+			target = svg.append('g')
+							.attr('id', 'y-axis-lines')
+							.attr("transform", "translate(" + 0 + ", " + 0 + ")")
+				
+			target.call(yAxis)
+			
+			target.append('text')
+					.text("Topic")
+					.attr("x", -height / 2 )
+					.attr("y", -35)
+					.attr('text-anchor', "middle")
+					.attr("transform", "rotate(-90)")
+					.attr('fill', 'black')
+					.style('font-size', "12px")
+					
+			var rects = svg.append('g')
+							.attr('id', 'bars')
+							
+			rects.selectAll('rect')
+					.data(data)
+					.enter()
+					.append('rect')
+					.attr('x', xScale(0))
+					.attr('y', d => yScale(d.topic))
+					.attr('width', d => xScale(d.views))
+					.attr('height', yScale.bandwidth())
+					.attr('fill', 'steelblue')
+					
+			var botbar = d3.select('.bottombar')
+		
+			d3.selectAll('#charttitle').remove()
+			d3.selectAll('#chartdesc').remove()
+									
+			var chartTitle = botbar.append('h3')
+								.attr('id', 'charttitle')
+								.text('Topic View Counts')
+							
+			var chartTitle = botbar.append('p')
+								.attr('id', 'chartdesc')
+								.attr('class', 'desc')
+								.text('The aboove graph shows the overall popularity of a topic in terms of views')
+		})
+	}
+	
+	function intratopic(selection, dat){
+		var url = "/intratopic";
+		if(selection._groups[0][0].className === 'tooltip')
+		{
+			margin = {top: 20, right: 20, bottom: 50, left: 150}
+			width = 800 - margin.left - margin.right
+			height = 600 - margin.top - margin.bottom
+			
+			d3.select('#intratopic').remove()
+			d3.select('#words').remove()
+			
+			svg = d3.select('.tooltip')
+						.append("svg")
+						.attr("id", 'intratopic')
+						.attr("width", width + margin.left + margin.right)
+						.attr("height", height + margin.top + margin.bottom)
+						.append("g")
+						.attr("id", "lilcontainer")
+						.attr("transform",
+							"translate(" + margin.left + "," + margin.top + ")")
+		} else {
+			var [svg, margin, height, width] = buildSVG(id)
+		}
+		
+		d3.json(url).then(data => {	
+			
+			
+			temp = []
+			
+			data.forEach(d => temp.push({
+						Term: d.Term, 
+					Frequency: +d.Frequency,
+						Topic: +d.Topic,
+						Bigram: +d.Bigram
+					}))
+					
+			data = temp
+			
+			var da = data.filter(d => d.Topic == dat)
+			var xScale = d3.scaleLinear()
+						.domain([0, d3.max(da.map(d => d.Frequency))])
+						.range([0, width])
+						
+						
+			var xAxis = d3.axisBottom(xScale)
+							.ticks(10)
+				
+			var target = svg.append('g')
+							.attr('id', 'x-axis-lines')
+							.attr("transform", "translate(" + 0 + ", " + height + ")")
+				
+			target.call(xAxis)
+			
+			target.append('text')
+				 .text("Frequency")
+				 .attr("x", width / 2 )
+				 .attr("y", 30)
+				 .attr('text-anchor', "middle")
+				 .attr('fill', 'black')
+				 .style('font-size', "12px")
+				 
+			var yScale = d3.scaleBand()
+						.domain(da.map(d => d.Term))
+						.range([height, 0])
+						.padding(.1)
+						
+			var yAxis = d3.axisLeft(yScale)
+				
+			target = svg.append('g')
+							.attr('id', 'y-axis-lines')
+							.attr("transform", "translate(" + 0 + ", " + 0 + ")")
+				
+			target.call(yAxis)
+			
+			svg.append('text')
+				.text(`Topic ${dat}`)
+				 .attr("x", width / 2 )
+				 .attr("y", 0)
+				 .attr('text-anchor', "middle")
+				 .attr('fill', 'black')
+				 .style('font-size', "20px")
+				 .style('font-weight', 'bold')
+			
+			var rects = svg.append('g')
+							.attr('id', 'bars')
+							
+			rects.selectAll('rect')
+					.data(da)
+					.enter()
+					.append('rect')
+					.attr('x', xScale(0))
+					.attr('y', d => yScale(d.Term))
+					.attr('width', d => xScale(d.Frequency))
+					.attr('height', yScale.bandwidth())
+					.attr('fill', d => { if(d.Bigram === 1){ return 'green'} else { return 'lightgreen'}})
+		})
+	}
+	
+	
+	function mouseover(d) {
+		tooltip.style("visibility", "visible")
+		
+		d3.select(this)
+			.style("stroke", "black")
+	}
+	function mousemove(d) {
+		tooltip.style("left", (d3.event.pageX + 20) + "px")
+				.style("top", (d3.event.pageY - 120) + "px")
+				.style("position", "absolute")
+				.call(h => intratopic(h, d.Topic))
+	}
+	function mouseleave(d) {
+		tooltip.style("visibility", 'hidden')
+		
+		d3.select(this)
+			.style("stroke", "none")
+	}
+	
+	function mouseover2(d) {
+		tooltip.style("visibility", "visible")
+		
+		d3.select(this)
+			.style("stroke", "black")
+			.attr('r', 8)
+	}
+	function mousemove2(d) {
+		d3.select('#intratopic').remove()
+		d3.select('#words').remove()
+		
+		tooltip.style("left", (d3.event.pageX + 20) + "px")
+				.style("top", (d3.event.pageY - 20) + "px")
+				.style("position", "absolute")
+				.append('p')
+				.attr('id', 'words')
+				.text(`Topic ${d.Topic} (${d.Time.toLocaleString()}): ${d.words}`)
+	}
+	function mouseleave2(d) {
+		tooltip.style("visibility", 'hidden')
+		
+		d3.select(this)
+			.style("stroke", "none")
+			.attr('r', 4)
+	}
+	
+	
+	function mousei(d) {
+		d3.select(this)
+			.style("border", "2px solid")
+	}
+	
+	function mouseo(d) {
+		d3.select(this)
+			.style("border", "none")
+	}
+	
+	
+	var main = d3.select('body')
+	
+	var topbar = main.append('div')
+				.attr('class', 'topbar')
+				
+	topbar.append('img')
+		.attr('class', 'icon')
+		.attr('src', "{{ url_for('static', filename='youtube.png') }}")
+		.style('float', 'left')
+		
+	topbar.append('h1')
+			.text('Youtube Topic Modeling')
+			.style('display', 'inline')
+			.style('margin-left', '20px')
+			.style('text-align', 'center')
+			.style('line-height', '80px')
+				
+	var rightbar = main.append('div')
+				.attr('class', 'rightbar')
+				
+	var titleRight = rightbar.append('div')
+							.style('display', 'block')
+							.attr('class', 'right')
+							.style('background-color', '#a3a3a3')
+		
+	titleRight.append('img')
+			.attr('src', "{{ url_for('static', filename='bert.png') }}")
+			.style('float', 'left')
+			.attr('height', '100px')
+			.attr('width', '100px')
+			
+	titleRight.append('h3')
+			.text('Graphs By Team 094')
+			.style('display', 'inline')
+			.style('margin-left', '10px')
+			.style('text-align', 'center')
+			.style('line-height', '50px')
+			.style('color', 'lightyellow')
+			
+	var intertopicRight = rightbar.append('div')
+							.style('display', 'block')
+							.attr('class', 'right')
+							.on('mouseover', mousei)
+							.on('mouseout', mouseo)
+							.on('click', d => intertopicDist('dist'))
+		
+	intertopicRight.append('img')
+			.attr('src', "{{ url_for('static', filename='intertopic.png') }}")
+			.style('float', 'left')
+			.attr('height', '100px')
+			.attr('width', '100px')
+			.style('border', 'solid 1px')
+			.style('border-radius', '10px')
+			
+	intertopicRight.append('h5')
+			.text('Intertopic Distance')
+			.style('display', 'inline')
+			.style('margin-left', '10px')
+			.style('text-align', 'center')
+			.style('line-height', '50px')
+			
+	var intertopicBarRight = rightbar.append('div')
+							.style('display', 'block')
+							.attr('class', 'right')
+							.on('mouseover', mousei)
+							.on('mouseout', mouseo)
+							.on('click', d => buildIntertopicBar('topicBar'))
+		
+	intertopicBarRight.append('img')
+			.attr('src', "{{ url_for('static', filename='intertopicBar.png') }}")
+			.style('float', 'left')
+			.attr('height', '100px')
+			.attr('width', '100px')
+			.style('border', 'solid 1px')
+			.style('border-radius', '10px')
+			
+	intertopicBarRight.append('h5')
+			.text('View By Topic')
+			.style('display', 'inline')
+			.style('margin-left', '10px')
+			.style('text-align', 'center')
+			.style('line-height', '50px')			
+			
+	var lineRight = rightbar.append('div')
+							.style('display', 'block')
+							.attr('class', 'right')
+							.on('mouseover', mousei)
+							.on('mouseout', mouseo)
+							.on('click', d => linechart('linechart'))
+		
+	lineRight.append('img')
+			.attr('src', "{{ url_for('static', filename='line.png') }}")
+			.style('float', 'left')
+			.attr('height', '100px')
+			.attr('width', '100px')
+			.style('border', 'solid 1px')
+			.style('border-radius', '10px')
+			
+	lineRight.append('h5')
+			.text('Timeseries By Topic')
+			.style('display', 'inline')
+			.style('margin-left', '10px')
+			.style('text-align', 'center')
+			.style('line-height', '50px')
+	
+	var graphRight = rightbar.append('div')
+							.style('display', 'block')
+							.attr('class', 'right')
+							.on('mouseover', mousei)
+							.on('mouseout', mouseo)
+							.on('click', d => graph('graph') )
+		
+	graphRight.append('img')
+			.attr('src', "{{ url_for('static', filename='graph.png') }}")
+			.style('float', 'left')
+			.attr('height', '100px')
+			.attr('width', '100px')
+			.style('border', 'solid 1px')
+			.style('border-radius', '10px')
+			
+	graphRight.append('h5')
+			.text('Full Graph')
+			.style('display', 'inline')
+			.style('margin-left', '10px')
+			.style('text-align', 'center')
+			.style('line-height', '50px')			
+	
+    var chart = main
+	  .append("div")
+	  .attr('class', 'chartDiv')
+	  
+	var tooltip = chart.append('div')
+					.attr('class', 'tooltip')
+					.style("visibility", "hidden")
+					.style("background-color", "white")
+					.style("border", "solid")
+					.style("border-width", "2px")
+					.style("border-radius", "5px")
+					.style("padding", "5px")
+					
+	var botbar = main.append('div')
+				.attr('class', 'bottombar')
+				
+	intertopicDist('IntertopicDist')
+</script>
+
+</body>
